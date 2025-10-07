@@ -150,6 +150,8 @@ stages:
         ArtifactName: 'powershell-scripts'
         publishLocation: 'Container'
 
+
+
 # SomeFunction.Tests.ps1
 BeforeAll {
     # Import the script to test (dot-sourcing)
@@ -195,9 +197,9 @@ Describe "Get-ProcessInfo" {
         
         It "Should find PowerShell process" {
             # Test with a process we know exists (PowerShell itself)
-            $result = Get-ProcessInfo -ProcessName "pwsh" -ErrorAction SilentlyContinue
+            $result = Get-ProcessInfo -ProcessName "powershell" -ErrorAction SilentlyContinue
             if (-not $result) {
-                $result = Get-ProcessInfo -ProcessName "powershell" -ErrorAction SilentlyContinue
+                $result = Get-ProcessInfo -ProcessName "pwsh" -ErrorAction SilentlyContinue
             }
             $result | Should -Not -BeNullOrEmpty
         }
@@ -234,6 +236,9 @@ Describe "Test-FileExists" {
         }
     }
 }
+
+
+
 # controller.ps1 - Local development controller script
 [CmdletBinding()]
 param(
