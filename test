@@ -384,6 +384,8 @@ catch {
     exit 1
 }
 
+$ Function
+
 
 function Get-ProcessInfo {
     <#
@@ -441,32 +443,3 @@ function Get-ProcessInfo {
         throw
     }
 }
-
-function Test-FileExists {
-    <#
-    .SYNOPSIS
-    Tests if a file or directory exists.
-    
-    .PARAMETER Path
-    Path to test.
-    
-    .EXAMPLE
-    Test-FileExists -Path "C:\temp\file.txt"
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Path
-    )
-    
-    if (Test-Path -Path $Path) {
-        Write-Host "Path exists: $Path" -ForegroundColor Green
-        return $true
-    }
-    else {
-        Write-Host "Path does not exist: $Path" -ForegroundColor Yellow
-        return $false
-    }
-}
-
-Export-ModuleMember -Function Get-ProcessInfo, Test-FileExists
