@@ -150,10 +150,9 @@ stages:
         ArtifactName: 'powershell-scripts'
         publishLocation: 'Container'
 
-
 # SomeFunction.Tests.ps1
 BeforeAll {
-    # Import the module/script to test
+    # Import the script to test (dot-sourcing)
     $projectRoot = Split-Path $PSScriptRoot -Parent
     $scriptPath = Join-Path $projectRoot "src\scripts\SomeFunction.ps1"
     
@@ -161,7 +160,13 @@ BeforeAll {
         throw "Cannot find script at: $scriptPath"
     }
     
+    # Dot-source the script to load the functions
     . $scriptPath
+    
+    # Verify functions are loaded
+    if (-not (Get-Command Get-ProcessInfo -ErrorAction SilentlyContinue)) {
+        throw "Get-ProcessInfo function not loaded"
+    }
 }
 
 Describe "Get-ProcessInfo" {
@@ -229,7 +234,6 @@ Describe "Test-FileExists" {
         }
     }
 }
-
 # controller.ps1 - Local development controller script
 [CmdletBinding()]
 param(
