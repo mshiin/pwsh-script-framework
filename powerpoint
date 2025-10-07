@@ -1,0 +1,1667 @@
+# PowerShell Scripting & Azure DevOps CI/CD
+## A Complete Development Workflow Demo
+
+---
+
+## Slide 1: Title Slide
+**PowerShell Scripting & Azure DevOps CI/CD**
+*Building Quality Code with Automated Testing*
+
+**Speaker Notes (2 minutes):**
+- Welcome everyone! Today we'll explore a complete PowerShell development workflow
+- We'll cover local development practices, automated testing, and CI/CD with Azure DevOps
+- By the end, you'll understand how to build reliable, production-ready PowerShell scripts
+- This is a hands-on demo - I'll be showing you real, working code
+- Feel free to ask questions as we go, but I'll also have time at the end for Q&A
+
+---
+
+## Slide 2: Agenda
+### What We'll Cover Today
+
+1. **Introduction to Modern PowerShell Development** (5 min)
+2. **Project Structure & Best Practices** (5 min)
+3. **Writing Quality PowerShell Functions** (10 min)
+4. **Local Development with Testing** (15 min)
+5. **Azure DevOps CI/CD Pipeline** (15 min)
+6. **Live Demo & Walkthrough** (8 min)
+7. **Q&A** (2 min)
+
+**Speaker Notes (3 minutes):**
+- We'll start with why modern PowerShell development matters
+- Then dive into the practical structure of a PowerShell project
+- You'll see how to write functions with proper error handling and documentation
+- We'll run tests locally using our controller script
+- Then we'll see how the same tests run automatically in Azure DevOps
+- Finally, a live demo bringing it all together
+- This workflow can be applied to scripts of any size - from utilities to enterprise automation
+
+---
+
+## Slide 3: Why Modern PowerShell Development?
+### The Old Way vs The New Way
+
+**The Old Way:**
+- ❌ Scripts written in isolation
+- ❌ Manual testing ("it works on my machine")
+- ❌ No version control
+- ❌ Documentation in separate files (if at all)
+- ❌ Production issues discovered by users
+
+**The New Way:**
+- ✅ Modular, testable functions
+- ✅ Automated testing before deployment
+- ✅ Version control with Git
+- ✅ Self-documenting code
+- ✅ Issues caught before production
+
+**Speaker Notes (5 minutes):**
+- Traditional PowerShell development often meant writing scripts and hoping they work
+- Many admins test manually - run the script, see if it works, deploy
+- This leads to "works on my machine" syndrome
+- Modern development brings software engineering practices to scripting
+- Key benefits: reliability, maintainability, collaboration
+- Example: Imagine deploying a script to 1000 servers - you want to be confident it works
+- With automated testing and CI/CD, you catch issues early
+- This isn't just for developers - it's for anyone writing PowerShell professionally
+- The time investment upfront saves hours of troubleshooting later
+
+---
+
+## Slide 4: Project Structure
+### Organizing Your PowerShell Project
+
+```
+project-root/
+├── .azure-pipelines/
+│   └── azure-pipelines.yml       # CI/CD configuration
+├── src/
+│   ├── scripts/
+│   │   └── SomeFunction.ps1      # Your functions
+│   └── controller.ps1            # Local dev controller
+├── tests/
+│   └── SomeFunction.Tests.ps1    # Pester tests
+└── TestResults/                   # Test output
+```
+
+**Key Principles:**
+- Separate source code from tests
+- Keep CI/CD config in version control
+- Use a controller for local development
+
+**Speaker Notes (5 minutes):**
+- A good project structure makes everything easier
+- Source code goes in src/ - this is what you'll deploy
+- Tests go in tests/ - separate but parallel structure
+- Azure pipeline config stays with the code - no surprise changes
+- The controller.ps1 script is your local command center
+- Why this structure? It scales from small scripts to large projects
+- TestResults folder is gitignored - it's temporary output
+- This structure mirrors professional software projects
+- Makes it easy for new team members to understand the layout
+- Pro tip: Add a README.md in each folder explaining its purpose
+
+---
+
+## Slide 5: PowerShell Best Practices
+### Writing Quality Functions
+
+**Essential Elements:**
+1. **Comment-Based Help** - Built-in documentation
+2. **Parameter Validation** - Catch errors early
+3. **Error Handling** - Try/Catch blocks
+4. **Proper Output** - Return objects, not strings
+5. **Verb-Noun Naming** - Follow PowerShell conventions
+
+**Example:**
+```powershell
+function Get-ProcessInfo {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$ProcessName
+    )
+    
+    try {
+        # Function logic here
+    }
+    catch {
+        Write-Error "Error: $_"
+        throw
+    }
+}
+```
+
+**Speaker Notes (5 minutes):**
+- Let's talk about what makes a good PowerShell function
+- Comment-based help: Users can run Get-Help on your function
+- Include Synopsis, Description, Parameters, and Examples
+- Parameter validation: Use attributes like [ValidateNotNull], [ValidateSet]
+- This prevents bad input from reaching your logic
+- Error handling: Always use try/catch for external calls
+- Don't silently fail - log errors and throw when appropriate
+- Proper output: Return rich objects, not formatted strings
+- This allows piping and further processing
+- Verb-Noun naming: Get-ProcessInfo, not GetProcessInfo or Get-Process-Info
+- Use approved verbs: Get-Verb shows the full list
+- These practices make your code professional and reusable
+
+---
+
+## Slide 6: Our Demo Functions
+### What We're Testing Today
+
+**Function 1: Get-ProcessInfo**
+- Retrieves running process information
+- Returns CPU usage and memory consumption
+- Can filter by process name or get top N processes
+
+**Function 2: Test-FileExists**
+- Tests if a file or directory exists
+- Returns boolean result
+- Provides user-friendly colored output
+
+**Why These Functions?**
+- Simple enough to understand quickly
+- Complex enough to demonstrate real testing
+- Use common PowerShell cmdlets
+- Representative of real-world automation tasks
+
+**Speaker Notes (3 minutes):**
+- For this demo, I've created two practical functions
+- Get-ProcessInfo is useful for monitoring and reporting
+- You might use this in health check scripts or performance monitoring
+- Test-FileExists is a building block for larger scripts
+- Many automation tasks start with "does this file exist?"
+- These functions demonstrate key concepts without overwhelming complexity
+- They use Get-Process and Test-Path - cmdlets you probably use daily
+- The testing principles we'll show apply to any PowerShell code
+- Whether you're working with Active Directory, Azure, or file systems
+- The same approach works
+
+---
+
+## Slide 7: Understanding PSScriptAnalyzer
+### Automated Code Quality
+
+**What is PSScriptAnalyzer?**
+- Static code analysis tool for PowerShell
+- Catches common mistakes and anti-patterns
+- Enforces best practices
+
+**What It Checks:**
+- Unused variables
+- Missing comment-based help
+- Improper verb usage
+- Security issues (hardcoded credentials)
+- Performance problems
+- Compatibility issues
+
+**Severity Levels:**
+- **Error:** Must be fixed
+- **Warning:** Should be fixed
+- **Information:** Consider fixing
+
+**Speaker Notes (5 minutes):**
+- PSScriptAnalyzer is your first line of defense
+- Think of it as a spell-checker for PowerShell code
+- It runs instantly and catches obvious issues
+- Example: Using Write-Host instead of Write-Output
+- Example: Not using approved verbs in function names
+- Example: Variables declared but never used
+- It can catch security issues like plaintext passwords
+- The tool has different rule sets - you can customize
+- We run this locally AND in our pipeline
+- Catching issues early saves time in code review
+- It's like having an expert look over your shoulder
+- Free tool, available in PowerShell Gallery
+- Run it before committing code - make it a habit
+
+---
+
+## Slide 8: Introduction to Pester
+### PowerShell Testing Framework
+
+**What is Pester?**
+- Unit testing framework for PowerShell
+- Comes with PowerShell 5.0+ (update to v5+ recommended)
+- Industry standard for PowerShell testing
+
+**Key Concepts:**
+- **Describe:** Groups related tests
+- **Context:** Sub-groups within Describe
+- **It:** Individual test cases
+- **Should:** Assertions/expectations
+
+**Test Structure:**
+```powershell
+Describe "FunctionName" {
+    Context "When doing something" {
+        It "Should behave correctly" {
+            $result = Get-Something
+            $result | Should -Be $expected
+        }
+    }
+}
+```
+
+**Speaker Notes (5 minutes):**
+- Pester is THE testing framework for PowerShell
+- Developed by the PowerShell community, endorsed by Microsoft
+- If you're testing PowerShell, you're using Pester
+- The syntax is readable - almost like plain English
+- Describe blocks group related tests together
+- Context provides additional grouping and setup
+- It blocks are individual tests - each one should test one thing
+- Should is how you make assertions - "result should be X"
+- Tests run in isolation - they don't affect each other
+- You can mock functions for testing complex scenarios
+- BeforeAll and AfterAll for setup and teardown
+- Tests are documentation - they show how functions should behave
+- Well-written tests are examples of usage
+
+---
+
+## Slide 9: Our Testing Strategy
+### What We Test and Why
+
+**Test Coverage:**
+
+1. **Happy Path Tests**
+   - Function returns expected data
+   - Correct number of results
+   - Proper object properties
+
+2. **Edge Cases**
+   - Empty results
+   - Invalid input
+   - Process/file doesn't exist
+
+3. **Error Handling**
+   - Exceptions thrown correctly
+   - Error messages are clear
+
+**Testing Philosophy:**
+- Test behavior, not implementation
+- Each test should be independent
+- Tests should be fast
+- Tests should be deterministic
+
+**Speaker Notes (5 minutes):**
+- Let's talk about what makes good tests
+- Happy path: Test the normal, expected usage
+- "When I ask for top 5 processes, I get 5 results"
+- Edge cases: What happens at the boundaries?
+- What if the process doesn't exist? What if the file is locked?
+- Error handling: Verify errors occur when they should
+- And that error messages help users understand what went wrong
+- Test behavior, not implementation: Don't test internal variables
+- Test what the function returns and how it behaves
+- Independent tests: Each test can run alone or in any order
+- Fast tests: You'll run them often - they need to be quick
+- Deterministic: Same input always gives same output
+- Our demo has 8 tests covering all these scenarios
+- In production, you'd have more comprehensive coverage
+
+---
+
+## Slide 10: The Controller Script
+### Local Development Command Center
+
+**controller.ps1 Actions:**
+```powershell
+# Run linting only
+.\src\controller.ps1 -Action lint
+
+# Run tests only
+.\src\controller.ps1 -Action test
+
+# Run both lint and tests
+.\src\controller.ps1 -Action all
+
+# Clean test results
+.\src\controller.ps1 -Action clean
+```
+
+**Benefits:**
+- Consistent development experience
+- Same commands for all developers
+- Mirrors CI/CD pipeline locally
+- Colored output for quick scanning
+- Installs required modules automatically
+
+**Speaker Notes (5 minutes):**
+- The controller script is your local development hub
+- Instead of remembering complex commands, use simple actions
+- This gives everyone on the team the same experience
+- New developer? Just run controller.ps1 -Action all
+- It handles module installation automatically
+- First run might install PSScriptAnalyzer and Pester
+- The colored output makes it easy to spot issues
+- Green means success, red means problems to fix
+- This mirrors what happens in the pipeline
+- If it passes locally, it should pass in Azure DevOps
+- The controller is itself a good example of PowerShell scripting
+- Uses advanced functions, parameter validation, error handling
+- You can extend it: add a -Action deploy or -Action package
+- Pro tip: Add this to your PowerShell profile for quick access
+
+---
+
+## Slide 11: Azure DevOps Pipeline Overview
+### CI/CD Automation
+
+**Pipeline Stages:**
+
+1. **Build & Validate**
+   - Install PSScriptAnalyzer
+   - Run static code analysis
+   - Fail if issues found
+
+2. **Test**
+   - Install Pester
+   - Run all unit tests
+   - Publish test results to Azure DevOps
+
+3. **Package & Publish**
+   - Create artifacts (main branch only)
+   - Store scripts for deployment
+   - Version and tag release
+
+**Speaker Notes (5 minutes):**
+- Now let's see how this runs automatically in Azure DevOps
+- Every time you push code, the pipeline runs
+- Stage 1 is Build & Validate - run linting
+- Same PSScriptAnalyzer rules we ran locally
+- If there are errors or warnings, the build fails
+- Stage 2 is Test - run Pester tests
+- All tests must pass to continue
+- Test results are published - we'll see this in the UI
+- Stage 3 is Package - only on main branch
+- This creates artifacts ready for deployment
+- Scripts are versioned and stored
+- Each stage depends on the previous one succeeding
+- This creates a quality gate - bad code doesn't progress
+- The pipeline is defined in YAML - stored with your code
+- No hidden configuration in the UI
+- Changes to the pipeline are version controlled too
+
+---
+
+## Slide 12: Pipeline Triggers & Branches
+### When Does the Pipeline Run?
+
+**Trigger Configuration:**
+```yaml
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    include:
+    - src/**
+    - tests/**
+    - .azure-pipelines/**
+```
+
+**Branch Strategy:**
+- **develop:** Active development, all stages run
+- **main:** Production-ready code, includes artifact publishing
+- **feature branches:** Can be added to trigger
+
+**Path Filtering:**
+- Only runs when relevant files change
+- Changes to docs don't trigger tests
+- Saves build minutes
+
+**Speaker Notes (5 minutes):**
+- Triggers control when the pipeline runs automatically
+- We trigger on main and develop branches
+- Main is your production-ready code
+- Develop is where active development happens
+- You can add feature branches to the trigger list
+- Path filtering is important for efficiency
+- We only trigger when code changes (src/, tests/, or pipeline config)
+- If someone updates README.md, no need to run tests
+- This saves Azure DevOps build minutes
+- Manual runs are always possible from the UI
+- You can also trigger on pull requests
+- This validates changes before merging
+- Best practice: Require passing build before PR approval
+- This prevents broken code from entering main
+- You can set up branch policies in Azure DevOps
+- Enforce code reviews plus passing tests
+
+---
+
+## Slide 13: Pipeline Job Details
+### What Happens in Each Stage
+
+**Stage 1: Build (Lint)**
+```yaml
+- task: PowerShell@2
+  displayName: 'Run Script Analyzer'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $scripts = Get-ChildItem -Path "src" -Filter *.ps1 -Recurse
+      Invoke-ScriptAnalyzer -Path $script.FullName
+```
+
+**Stage 2: Test**
+```yaml
+- task: PowerShell@2
+  displayName: 'Run Pester Tests'
+  inputs:
+    script: |
+      Invoke-Pester -Configuration $config
+      
+- task: PublishTestResults@2
+  inputs:
+    testResultsFiles: '**/test-results.xml'
+```
+
+**Speaker Notes (5 minutes):**
+- Let's look at the actual pipeline tasks
+- PowerShell@2 is the Azure DevOps task for running PowerShell
+- targetType 'inline' means script is in the YAML
+- For linting, we get all .ps1 files and analyze them
+- The script fails if issues are found (exit code 1)
+- For testing, we use Pester's configuration object
+- We specify where to save test results (XML format)
+- PublishTestResults@2 uploads results to Azure DevOps
+- This enables the nice UI with pass/fail charts
+- You can track test results over time
+- See which tests fail most often
+- The 'condition: always()' means publish even if tests fail
+- This way you see what failed in the UI
+- Each task can have error handling and retry logic
+- You can add notifications on failure
+- Email, Teams, Slack - whatever your team uses
+
+---
+
+## Slide 14: Test Results in Azure DevOps
+### Visibility and Tracking
+
+**What You Get:**
+- ✅ Pass/fail summary for each run
+- ✅ Historical trending over time
+- ✅ Detailed failure information
+- ✅ Performance metrics
+- ✅ Downloadable test result files
+
+**Benefits:**
+- Quick identification of breaking changes
+- Team visibility into code quality
+- Historical record for compliance
+- Integration with work items
+
+**Dashboard Example:**
+```
+Tests: 8 passed, 0 failed
+Duration: 4.2 seconds
+Coverage: 85%
+Previous runs: ✅ ✅ ✅ ✅ ✅
+```
+
+**Speaker Notes (5 minutes):**
+- One of the best features: test result tracking in Azure DevOps
+- After each run, you see a test summary
+- How many passed, how many failed, how long it took
+- Click into any test to see detailed output
+- If a test fails, you see the exact assertion that failed
+- Historical trending shows test reliability over time
+- Is this test flaky? Does it fail intermittently?
+- You can see when tests started failing
+- Helps identify which commit broke what
+- Great for teams: everyone sees the same results
+- No more "it works on my machine"
+- For compliance: tests provide auditable evidence
+- You can link test results to work items
+- "This bug fix is validated by these tests"
+- Export results for reporting
+- Set up quality gates: require X% pass rate
+- The dashboard makes quality visible
+
+---
+
+## Slide 15: Artifacts and Deployment
+### Packaging Your Scripts
+
+**Artifact Creation:**
+```yaml
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'powershell-scripts'
+```
+
+**What Gets Published:**
+- All scripts from src/
+- Versioned with build number
+- Stored in Azure DevOps
+- Ready for deployment
+
+**Deployment Options:**
+- Manual download and deploy
+- Release pipeline with approvals
+- Automated deployment to environments
+- Copy to file shares or package feeds
+
+**Speaker Notes (5 minutes):**
+- After tests pass, we create artifacts
+- Artifacts are the packaged output of your build
+- For PowerShell, this is your tested scripts
+- They're stored in Azure DevOps
+- Each artifact is versioned with the build number
+- Build 1.0.47 has artifact 1.0.47
+- You can download artifacts manually
+- Or set up a release pipeline
+- Release pipelines handle deployment
+- They can have approval gates
+- "Quality assurance must approve before production"
+- You can deploy to multiple environments
+- Dev, Test, Staging, Production
+- Each with its own approval process
+- Artifacts ensure you deploy exactly what was tested
+- No "oops, forgot to copy that file"
+- You can also publish to package feeds
+- Make your scripts available via PowerShellGet
+- For this demo, we keep it simple
+- But the foundation for full deployment is there
+
+---
+
+## Slide 16: Live Demo - Part 1
+### Local Development Workflow
+
+**Demo Steps:**
+1. Show project structure in VS Code
+2. Open SomeFunction.ps1 - explain the code
+3. Open SomeFunction.Tests.ps1 - explain tests
+4. Run: `.\src\controller.ps1 -Action lint`
+5. Run: `.\src\controller.ps1 -Action test`
+6. Show TestResults folder
+7. Introduce an intentional error
+8. Show how lint/tests catch it
+
+**Speaker Notes (8 minutes):**
+- Now for the exciting part - let's see this in action!
+- First, I'll open the project in VS Code
+- See the folder structure we discussed
+- Let me open SomeFunction.ps1
+- Here's Get-ProcessInfo - notice the comment-based help
+- Parameters with validation
+- Try/catch error handling
+- It returns a custom object with specific properties
+- Now the tests - SomeFunction.Tests.ps1
+- BeforeAll block loads the function
+- Describe blocks group tests
+- Each It block tests one specific behavior
+- Let's run the linter: controller.ps1 -Action lint
+- [Run command, show output]
+- Green means all clear - no issues found
+- Now let's run tests: controller.ps1 -Action test
+- [Run command, show output]
+- 8 tests, all passed, took about 4 seconds
+- Let me show the TestResults folder
+- There's our NUnit XML file
+- Now let me introduce an error intentionally
+- [Make a coding mistake, like missing a bracket]
+- Run lint again - see? It caught it!
+- This is how you catch issues before committing
+
+---
+
+## Slide 17: Live Demo - Part 2
+### Azure DevOps Pipeline
+
+**Demo Steps:**
+1. Open Azure DevOps in browser
+2. Navigate to Pipelines
+3. Show a recent successful run
+4. Walk through each stage
+5. Show test results tab
+6. Show artifacts
+7. Demonstrate how to download
+
+**Alternative if no live Azure DevOps:**
+- Show screenshots of pipeline runs
+- Explain what each section means
+- Discuss how to set up a new pipeline
+
+**Speaker Notes (7 minutes):**
+- Now let's see this running in Azure DevOps
+- [Open Azure DevOps]
+- Here's our project, click on Pipelines
+- We have several runs here - all successful
+- Let me open the most recent one
+- See the three stages: Build, Test, Package
+- Each stage has a green checkmark - all passed
+- Click on the Build stage
+- Here's the lint job - it found all our scripts
+- Analyzed them with PSScriptAnalyzer
+- Zero issues found - success!
+- Now the Test stage
+- Installed Pester, ran tests
+- Let's look at the test results tab
+- Beautiful summary: 8 tests passed
+- Click on any test to see details
+- You can see the actual Pester output
+- Now the Package stage
+- This created our artifact
+- Click on "1 published" - here's our artifact
+- Named "powershell-scripts"
+- You can download it right from here
+- [Download if possible]
+- Unzip it - there's our tested scripts
+- Ready to deploy anywhere
+- This is the power of automation
+
+---
+
+## Slide 18: Best Practices Summary
+### Key Takeaways
+
+**Code Quality:**
+- ✅ Write modular, reusable functions
+- ✅ Include comment-based help
+- ✅ Use proper error handling
+- ✅ Follow PowerShell naming conventions
+
+**Testing:**
+- ✅ Test locally before committing
+- ✅ Aim for comprehensive coverage
+- ✅ Keep tests fast and independent
+- ✅ Use meaningful test names
+
+**CI/CD:**
+- ✅ Automate everything
+- ✅ Fail fast with linting
+- ✅ Track test results over time
+- ✅ Version your artifacts
+
+**Speaker Notes (3 minutes):**
+- Let's recap the key best practices
+- Start with quality code - modular functions
+- Documentation is code - write it as you go
+- Don't skip error handling - it will bite you
+- Testing locally saves time - catch issues early
+- Comprehensive coverage means testing happy paths AND errors
+- Fast tests mean you'll actually run them
+- Automation removes human error from the equation
+- Linting catches issues immediately
+- Test tracking shows quality trends
+- Versioned artifacts ensure repeatability
+- These practices scale from small scripts to large projects
+- Start small - add one test, then another
+- Build the habit of testing
+- Your future self will thank you
+
+---
+
+## Slide 19: Getting Started in Your Environment
+### Implementation Roadmap
+
+**Week 1: Foundation**
+- Install PSScriptAnalyzer and Pester
+- Create basic project structure
+- Write your first test
+
+**Week 2: Local Development**
+- Create a controller script
+- Add linting to your workflow
+- Write tests for existing scripts
+
+**Week 3: CI/CD Setup**
+- Set up Azure DevOps project
+- Create your first pipeline
+- Connect to your repository
+
+**Week 4: Refinement**
+- Add more comprehensive tests
+- Configure branch policies
+- Set up notifications
+
+**Speaker Notes (3 minutes):**
+- You might be thinking "this looks great, but where do I start?"
+- Here's a practical roadmap
+- Week 1: Just get the tools installed
+- Install-Module PSScriptAnalyzer, Pester
+- Create the folder structure
+- Write one simple test for one function
+- Week 2: Make it part of your workflow
+- Build that controller script we showed
+- Start running lint before you commit
+- Add one test for each new function you write
+- Week 3: Move to the cloud
+- Set up an Azure DevOps organization (it's free for small teams)
+- Create your first pipeline - copy our YAML
+- Connect it to your Git repository
+- Week 4: Polish and improve
+- Add edge case tests
+- Set up pull request policies
+- Configure notifications so the team knows about failures
+- Don't try to do everything at once
+- Incremental improvement is the key
+
+---
+
+## Slide 20: Common Challenges & Solutions
+### Troubleshooting Tips
+
+**Challenge 1: Tests are slow**
+- Solution: Mock external calls, use -Fast parameter
+- Don't test external services in unit tests
+
+**Challenge 2: Tests fail inconsistently**
+- Solution: Remove dependencies on external state
+- Use $TestDrive for file operations
+
+**Challenge 3: Hard to test legacy code**
+- Solution: Refactor into testable functions
+- Start with new code, gradually improve old
+
+**Challenge 4: Pipeline fails but works locally**
+- Solution: Check PowerShell version, module versions
+- Use same environment locally and in pipeline
+
+**Speaker Notes (3 minutes):**
+- Let's address common issues you might face
+- Slow tests: Often caused by calling actual APIs or services
+- Use Pester's mocking to fake external calls
+- Unit tests should be fast - seconds, not minutes
+- Flaky tests are a nightmare
+- Usually caused by depending on machine state
+- "Test only passes if file X exists on C drive"
+- Use Pester's $TestDrive for temporary files
+- Legacy code is hard to test
+- Don't try to test it all at once
+- Refactor gradually - extract testable functions
+- Add tests as you modify code
+- "Works on my machine" strikes again in pipelines
+- Check PowerShell versions match
+- Check module versions match
+- Best practice: specify exact versions in pipeline
+- Use containers for consistent environments
+
+---
+
+## Slide 21: Advanced Topics
+### Where to Go from Here
+
+**Testing:**
+- Code coverage reporting
+- Integration testing
+- Performance testing
+- Mocking complex scenarios
+
+**CI/CD:**
+- Multi-stage deployments
+- Approval gates
+- Rollback strategies
+- Infrastructure as Code
+
+**Tooling:**
+- Visual Studio Code extensions
+- GitHub Actions (alternative to Azure DevOps)
+- PSake for build automation
+- Plaster for project templates
+
+**Speaker Notes (3 minutes):**
+- Once you master the basics, there's more to explore
+- Code coverage: What percentage of your code has tests?
+- Tools like Pester can generate coverage reports
+- Integration testing: Test how components work together
+- Performance testing: Ensure scripts run efficiently
+- Advanced mocking: Simulate complex external dependencies
+- Multi-stage deployments: Dev -> Test -> Staging -> Prod
+- Approval gates: Require sign-off before production
+- Rollback: Plan for when deployments go wrong
+- Infrastructure as Code: Test your infrastructure scripts too
+- VS Code has great extensions for PowerShell and Pester
+- Run tests right in the editor
+- GitHub Actions is an alternative to Azure DevOps
+- Free for public repositories
+- PSake is a build automation tool for PowerShell
+- Like Make but for PowerShell
+- Plaster creates project templates
+- Scaffold new projects with best practices built-in
+
+---
+
+## Slide 22: Resources & Documentation
+### Learning More
+
+**Official Documentation:**
+- docs.microsoft.com/powershell
+- pester.dev
+- azure.com/devops/pipelines
+
+**Community Resources:**
+- PowerShell.org forums
+- Reddit: r/PowerShell
+- PowerShell Summit videos
+
+**Books:**
+- "The Pester Book" - free online
+- "PowerShell Practice and Style Guide"
+- "The DevOps Handbook"
+
+**Tools:**
+- PSScriptAnalyzer: github.com/PowerShell/PSScriptAnalyzer
+- Pester: pester.dev
+- VS Code PowerShell Extension
+
+**Speaker Notes (2 minutes):**
+- Here are resources to continue learning
+- Microsoft's docs are comprehensive and well-maintained
+- Pester.dev has excellent documentation and examples
+- Azure DevOps docs cover pipeline scenarios
+- PowerShell.org is a great community
+- Active forums, helpful members
+- Reddit's PowerShell community is also very active
+- PowerShell Summit talks are on YouTube
+- Hours of advanced content from experts
+- "The Pester Book" is free and comprehensive
+- Written by the Pester maintainers
+- PowerShell Practice and Style Guide is community-driven
+- Shows you the accepted way to write PowerShell
+- The DevOps Handbook explains the philosophy
+- Not PowerShell-specific but highly relevant
+- All the tools we used today are open source
+- Active communities, regular updates
+
+---
+
+## Slide 23: Q&A
+### Questions?
+
+**Common Questions:**
+- Q: Do I need Azure DevOps or can I use GitHub?
+  - A: GitHub Actions works too! Similar YAML syntax
+
+- Q: What if my company doesn't use Git?
+  - A: Azure DevOps supports TFVC too
+
+- Q: How much does this cost?
+  - A: Azure DevOps is free for small teams (up to 5 users)
+
+- Q: Can I test GUI scripts?
+  - A: Pester can test PowerShell with UI, but separate logic from UI
+
+- Q: What about Windows PowerShell vs PowerShell 7?
+  - A: Both work! Specify in your pipeline which to use
+
+**Speaker Notes (5 minutes remaining):**
+- Now I'd like to open it up for questions
+- [Wait for questions, use these as prompts if none]
+- [For each question, provide detailed answer]
+- GitHub Actions: Yes, absolutely! The workflow is similar
+- The tests and linting are the same
+- Just different YAML syntax for the pipeline
+- TFVC: Less common now, but Azure DevOps supports it
+- Git is recommended for modern workflows
+- Cost: Azure DevOps is free for small teams
+- Free tier includes pipelines, repos, boards
+- Paid only if you need more parallel jobs
+- GUI testing: Separate your logic from UI
+- Test the business logic with Pester
+- UI testing needs different tools (like Pester for UI)
+- PowerShell version: Both work great
+- Pipeline can use either version
+- pwsh: true for PowerShell 7
+- pwsh: false for Windows PowerShell
+- [Answer any other questions that come up]
+- Thank you all for your time!
+
+---
+
+## Slide 24: Thank You!
+### Contact & Follow-Up
+
+**Demo Resources:**
+- GitHub Repository: [Your repo URL]
+- Sample Code: Available in the demo folder
+- Presentation Slides: [URL]
+
+**Stay Connected:**
+- Email: [Your email]
+- LinkedIn: [Your profile]
+- Blog/Website: [Your site]
+
+**Next Steps:**
+1. Clone the demo repository
+2. Try running it locally
+3. Set up your own pipeline
+4. Share your experience with the team!
+
+**Thank you for attending!**
+
+**Speaker Notes (2 minutes):**
+- Thank you all for your attention today
+- I hope this was helpful and practical
+- All the code we used is available
+- [Share repository link]
+- Feel free to clone it and experiment
+- The slides will be shared after this session
+- If you have follow-up questions, reach out
+- [Provide contact information]
+- I encourage you to try this on a small project
+- Start simple, build the habit
+- Share what you learn with your team
+- Good testing practices spread through example
+- Remember: The goal isn't perfection
+- It's continuous improvement
+- Each test you write makes your code better
+- Each pipeline run increases confidence
+- Thank you again, and happy scripting!
+
+---
+
+## Appendix: Additional Slides (If Needed)
+
+### Backup Slide 1: Pester Syntax Deep Dive
+[Include if audience wants more Pester details]
+
+### Backup Slide 2: Azure DevOps Pricing
+[Include if cost questions come up]
+
+### Backup Slide 3: Git Branching Strategy
+[Include if discussion goes into version control]
+
+### Backup Slide 4: Security Considerations
+[Include for enterprise audience]
+
+---
+
+## Backup Slide 1: Pester Syntax Deep Dive
+### Understanding Pester Commands
+
+**Core Assertions:**
+```powershell
+# Equality
+$result | Should -Be 5
+$result | Should -Not -Be 0
+
+# Null checks
+$result | Should -BeNullOrEmpty
+$result | Should -Not -BeNullOrEmpty
+
+# Type checking
+$result | Should -BeOfType [string]
+$result | Should -BeOfType [System.Collections.ArrayList]
+
+# Existence
+$result | Should -Exist  # For files
+$result | Should -Contain "value"  # For arrays
+
+# Exceptions
+{ Get-Something } | Should -Throw
+{ Get-Something } | Should -Not -Throw
+
+# Matching
+$result | Should -Match "pattern"
+$result | Should -BeLike "wild*card"
+```
+
+**Lifecycle Hooks:**
+```powershell
+BeforeAll { }      # Runs once before all tests
+BeforeEach { }     # Runs before each test
+AfterEach { }      # Runs after each test
+AfterAll { }       # Runs once after all tests
+```
+
+**Mocking:**
+```powershell
+Mock Get-Process { return @{Name="fake"} }
+Assert-MockCalled Get-Process -Times 1
+```
+
+**Speaker Notes:**
+- These are advanced Pester features
+- Should -Be is for exact equality
+- Should -BeOfType verifies object types
+- Useful when functions should return specific types
+- Should -Throw tests exception handling
+- Critical for testing error scenarios
+- Mocking replaces real function calls with fake data
+- Useful for testing without external dependencies
+- Example: Mock Get-ADUser to test without Active Directory
+- BeforeAll/AfterAll for expensive setup
+- Like creating test databases or files
+- BeforeEach for test isolation
+- Each test gets fresh state
+- Mock assertions verify function was called
+- Great for testing that logging happened
+- These advanced features unlock complex testing scenarios
+
+---
+
+## Backup Slide 2: Azure DevOps Pricing & Plans
+### Understanding Costs
+
+**Free Tier Includes:**
+- ✅ Unlimited private Git repositories
+- ✅ Up to 5 users
+- ✅ 1 Microsoft-hosted parallel job (1,800 min/month)
+- ✅ 1 self-hosted parallel job
+- ✅ Azure Boards and Test Plans (basic)
+
+**Paid Options:**
+- **Basic Plan:** $6/user/month
+  - Everything in free tier
+  - More users
+- **Basic + Test Plans:** $52/user/month
+  - Advanced testing features
+  - Manual testing management
+
+**Build Minutes:**
+- Free: 1,800 minutes/month
+- Additional: $40/month per parallel job
+- Self-hosted agents: Free, unlimited
+
+**When to Upgrade:**
+- Team has more than 5 people
+- Need more parallel jobs for faster builds
+- Require advanced test management
+- Need more build minutes
+
+**Alternatives:**
+- GitHub Actions (Free for public repos, 2,000 min/month for private)
+- GitLab CI/CD (Free tier available)
+- Jenkins (Free, self-hosted)
+
+**Speaker Notes:**
+- Let's talk about the financial aspect
+- Azure DevOps is very generous with free tier
+- 5 users is enough for small teams
+- 1,800 minutes is about 60 minutes per day
+- For PowerShell scripts, builds are fast
+- You'll rarely hit the limit
+- Self-hosted agents are completely free
+- Run on your own server
+- Unlimited minutes, unlimited parallel jobs
+- Only limitation: you manage the infrastructure
+- Basic plan at $6/user is reasonable
+- Compare to coffee subscriptions
+- GitHub Actions is a solid alternative
+- 2,000 minutes free for private repos
+- Unlimited for public open-source projects
+- GitLab has competitive free tier
+- Jenkins is free but requires setup
+- Most small teams stick with free tier
+- Upgrade only when you have clear need
+- ROI calculation: How much time does automation save?
+- Usually pays for itself quickly
+
+---
+
+## Backup Slide 3: Git Branching Strategies
+### Managing Your Code Flow
+
+**Common Strategies:**
+
+**1. GitHub Flow (Simple)**
+```
+main (always deployable)
+  └── feature/add-logging
+  └── feature/fix-bug-123
+```
+- Create feature branch
+- Make changes, push
+- Open pull request
+- Merge to main after review
+
+**2. GitFlow (Complex)**
+```
+main (production)
+  └── develop (integration)
+      └── feature/new-feature
+      └── hotfix/critical-bug
+      └── release/v1.0
+```
+
+**3. Trunk-Based (Fast)**
+```
+main (continuous integration)
+  └── Short-lived branches (<1 day)
+```
+
+**Recommended for PowerShell Projects:**
+- Small teams: GitHub Flow
+- Enterprise: GitFlow
+- Continuous deployment: Trunk-Based
+
+**Pull Request Best Practices:**
+- Require code review
+- Require passing tests
+- Require up-to-date branches
+- Use templates for consistency
+
+**Speaker Notes:**
+- Let's talk about managing code with branches
+- Three main strategies, each has trade-offs
+- GitHub Flow is simplest
+- Perfect for small teams and simple projects
+- Main branch is always production-ready
+- Feature branches for new work
+- Merge via pull requests
+- GitFlow is more complex
+- Has develop branch for integration
+- Release branches for preparing releases
+- Hotfix branches for urgent production fixes
+- Good for scheduled releases
+- Common in enterprise environments
+- Trunk-Based is fastest
+- Everyone commits to main frequently
+- Short-lived branches, less than a day
+- Requires mature testing and CI/CD
+- For PowerShell projects, I recommend GitHub Flow
+- Simple, effective, easy to understand
+- Pull requests enable review and testing
+- Set up branch policies in Azure DevOps
+- Require at least one reviewer
+- Require build validation (our pipeline)
+- Require branch up-to-date before merge
+- This prevents conflicts and broken code
+- Use PR templates to standardize
+- Checklist: "Did you update tests?"
+- Good branching strategy prevents chaos
+- Everyone knows where code should go
+
+---
+
+## Backup Slide 4: Security Considerations
+### Keeping Your Scripts Safe
+
+**Secrets Management:**
+- ❌ Never hardcode passwords in scripts
+- ❌ Never commit credentials to Git
+- ✅ Use Azure Key Vault
+- ✅ Use pipeline variables with encryption
+- ✅ Use managed identities when possible
+
+**Code Security:**
+```powershell
+# Bad - hardcoded credential
+$password = "MyP@ssw0rd"
+
+# Good - from Key Vault
+$password = Get-AzKeyVaultSecret -VaultName "myvault" -Name "password"
+
+# Better - managed identity
+Connect-AzAccount -Identity
+```
+
+**Pipeline Security:**
+- Use variable groups for shared secrets
+- Mark variables as secret
+- Limit pipeline access to specific branches
+- Use service connections for external services
+- Enable audit logging
+
+**Code Review for Security:**
+- Check for hardcoded secrets
+- Verify input validation
+- Look for SQL injection risks
+- Review file path handling
+- Check for command injection
+
+**PSScriptAnalyzer Security Rules:**
+- AvoidUsingPlainTextForPassword
+- AvoidUsingConvertToSecureStringWithPlainText
+- AvoidUsingUsernameAndPasswordParams
+- UsePSCredentialType
+
+**Speaker Notes:**
+- Security is critical, especially in enterprise
+- Number one mistake: hardcoding credentials
+- "It's just a test script" becomes production
+- Git history remembers everything
+- Even if you delete it later, it's still there
+- Use Azure Key Vault for secrets
+- Secure storage, access logging, rotation
+- Pipeline variables can be encrypted
+- Marked as secret, never displayed in logs
+- Managed identities are best for Azure
+- No credentials to manage at all
+- Service connections for external services
+- GitHub, Docker Hub, AWS, etc.
+- Credentials stored once, referenced by name
+- Variable groups for shared secrets
+- One place to update, used by multiple pipelines
+- Code review catches security issues
+- Check for hardcoded passwords, API keys
+- Look for insecure patterns
+- PSScriptAnalyzer has security rules
+- Catches common mistakes automatically
+- AvoidUsingPlainTextForPassword
+- This would flag our bad example
+- UsePSCredentialType
+- Ensures proper credential handling
+- Input validation prevents injection attacks
+- Especially with user-provided data
+- Never trust input, always validate
+- Security is everyone's responsibility
+- Build it into your process from day one
+
+---
+
+## Backup Slide 5: Performance Testing PowerShell
+### Measuring Script Efficiency
+
+**Measure-Command:**
+```powershell
+$time = Measure-Command {
+    Get-ProcessInfo -Top 1000
+}
+Write-Host "Execution time: $($time.TotalSeconds) seconds"
+```
+
+**Pester Performance Testing:**
+```powershell
+It "Should complete in under 5 seconds" {
+    $time = Measure-Command {
+        Get-ProcessInfo -Top 100
+    }
+    $time.TotalSeconds | Should -BeLessThan 5
+}
+```
+
+**Common Performance Issues:**
+- 🐌 Unnecessary loops
+- 🐌 Not using -Filter parameters
+- 🐌 Calling external commands repeatedly
+- 🐌 Not using pipelines efficiently
+- 🐌 Building strings in loops
+
+**Optimization Techniques:**
+```powershell
+# Slow - string concatenation
+$result = ""
+foreach ($item in $items) {
+    $result += "$item`n"
+}
+
+# Fast - array join
+$result = $items -join "`n"
+
+# Slow - multiple cmdlet calls
+foreach ($user in $users) {
+    Get-ADUser -Identity $user
+}
+
+# Fast - single call with filter
+Get-ADUser -Filter "Name -like '*'"
+```
+
+**Speaker Notes:**
+- Performance matters for production scripts
+- Script running on 1000 servers needs to be efficient
+- Measure-Command is your friend
+- Wrap any code block to time it
+- Identify bottlenecks before optimizing
+- "Premature optimization is the root of all evil"
+- But measuring is not premature
+- You can test performance with Pester
+- "Function should complete in under X seconds"
+- Catches performance regressions
+- Common issue: unnecessary loops
+- PowerShell has powerful built-in operators
+- String concatenation in loops is slow
+- Each += creates a new string
+- Use -join or StringBuilder instead
+- Multiple cmdlet calls are expensive
+- Especially with Active Directory
+- Use -Filter to get all results at once
+- Pipeline abuse can be slow
+- Sometimes ForEach-Object is slower than foreach
+- Profile before optimizing
+- Use different approaches for different scales
+- 10 items? Doesn't matter much
+- 10,000 items? Big difference
+- Test with realistic data sizes
+- Performance testing in pipeline
+- Track metrics over time
+- Alert if execution time spikes
+- Good performance = good user experience
+
+---
+
+## Backup Slide 6: Documentation Best Practices
+### Making Your Code Understandable
+
+**Comment-Based Help Structure:**
+```powershell
+function Verb-Noun {
+    <#
+    .SYNOPSIS
+    One-line description
+    
+    .DESCRIPTION
+    Detailed explanation of what the function does
+    Multiple paragraphs are fine
+    
+    .PARAMETER ParameterName
+    Describe what this parameter does
+    
+    .EXAMPLE
+    Verb-Noun -ParameterName "value"
+    Describe what this example does
+    
+    .EXAMPLE
+    Verb-Noun -Other "example"
+    You can have multiple examples
+    
+    .NOTES
+    Author: Your Name
+    Date: 2025-01-15
+    Version: 1.0
+    
+    .LINK
+    https://docs.example.com/function
+    #>
+}
+```
+
+**Inline Comments:**
+```powershell
+# Good comment - explains WHY
+# Using regex here because wildcard doesn't support OR logic
+$pattern = '^(user|admin|guest)'
+
+# Bad comment - explains WHAT (obvious)
+# Loop through users
+foreach ($user in $users) {
+```
+
+**README.md Content:**
+1. What does this project do?
+2. How do I install/run it?
+3. What are the prerequisites?
+4. Examples of usage
+5. How to contribute
+6. License information
+
+**Speaker Notes:**
+- Documentation is as important as code
+- Future you will thank present you
+- Comment-based help is PowerShell standard
+- Users can run Get-Help on your function
+- Synopsis: One line, answers "what does it do?"
+- Description: More detail, use cases
+- Parameter: Each one should be explained
+- Not just "The name parameter"
+- Explain what it's used for, valid values
+- Examples are crucial
+- Show real usage scenarios
+- Copy-paste ready
+- Notes section for metadata
+- Author, date, version
+- Change history can go here
+- Links to related documentation
+- Inline comments: Explain WHY not WHAT
+- Code shows what you're doing
+- Comments explain why you chose this approach
+- Don't comment obvious things
+- "i++" doesn't need a comment
+- Complex regex or logic needs explanation
+- README.md is first thing people see
+- Answer basic questions immediately
+- Installation, usage, examples
+- Good docs reduce support burden
+- Fewer "how do I use this?" questions
+- Keep docs updated with code
+- Outdated docs are worse than no docs
+- Consider using platyPS for external help
+- Generates MAML from comment-based help
+
+---
+
+## Backup Slide 7: Troubleshooting Pipeline Failures
+### Common Issues and Fixes
+
+**Problem 1: Module Not Found**
+```
+Error: Module 'PSScriptAnalyzer' not found
+```
+**Solution:**
+```yaml
+- task: PowerShell@2
+  inputs:
+    script: |
+      Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+```
+
+**Problem 2: Test Results Not Published**
+```
+Warning: No test results found
+```
+**Solution:**
+- Check OutputPath in Pester configuration
+- Verify PublishTestResults path matches
+- Ensure test runs even if some fail
+
+**Problem 3: Permission Denied**
+```
+Error: Access to path is denied
+```
+**Solution:**
+- Check file permissions
+- Don't write to system directories
+- Use $(Agent.TempDirectory)
+
+**Problem 4: Timeout**
+```
+Error: Job timed out after 60 minutes
+```
+**Solution:**
+```yaml
+jobs:
+- job: TestJob
+  timeoutInMinutes: 120
+```
+
+**Problem 5: Script Fails Locally But Not in Pipeline**
+**Solution:**
+- Check PowerShell version differences
+- Verify module versions
+- Look for environment-specific paths
+- Check for dependencies on local files
+
+**Debugging Techniques:**
+```powershell
+# Add verbose output
+Write-Host "##[debug]Variable value: $myVar"
+
+# Enable verbose preference
+$VerbosePreference = 'Continue'
+
+# Add step to show environment
+Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+Write-Host "Current Path: $(Get-Location)"
+```
+
+**Speaker Notes:**
+- Pipelines will fail - it's normal
+- Key is knowing how to troubleshoot
+- Module not found is most common
+- Happens when running on clean agent
+- Solution: Install modules in pipeline
+- Force and Scope CurrentUser important
+- Test results not publishing
+- Usually a path mismatch
+- Pester outputs to one path
+- PublishTestResults looks in another
+- Use consistent variables
+- Permission issues happen
+- Pipeline runs as service account
+- Might not have access to certain folders
+- Use pipeline variables for paths
+- $(Agent.TempDirectory) is safe
+- Timeouts on long-running tests
+- Default is 60 minutes
+- Increase with timeoutInMinutes
+- Or optimize slow tests
+- Works locally, fails in pipeline
+- Usually environment differences
+- Different PowerShell versions
+- Different module versions
+- Different working directories
+- Add debug steps to compare
+- Use ##[debug] for Azure DevOps logging
+- These show in logs even for passing builds
+- Add environment info at start
+- PowerShell version, modules, path
+- Makes troubleshooting easier
+- Enable verbose logging temporarily
+- See detailed execution flow
+- Each failure is a learning opportunity
+- Document solutions in wiki
+
+---
+
+## Backup Slide 8: Integration with Other Tools
+### Extending Your Workflow
+
+**VS Code Integration:**
+```json
+// .vscode/tasks.json
+{
+    "label": "Run All Tests",
+    "type": "shell",
+    "command": ".\\src\\controller.ps1 -Action test",
+    "group": "test"
+}
+```
+- Run tests with Ctrl+Shift+P → "Run Test Task"
+- Pester Test Adapter extension
+- PowerShell extension with IntelliSense
+
+**Git Hooks:**
+```powershell
+# .git/hooks/pre-commit
+#!/usr/bin/env pwsh
+.\src\controller.ps1 -Action lint
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Lint failed. Fix issues before committing."
+    exit 1
+}
+```
+
+**Slack/Teams Notifications:**
+```yaml
+- task: PowerShell@2
+  condition: failed()
+  inputs:
+    script: |
+      $webhook = "$(SlackWebhook)"
+      $body = @{
+        text = "Build failed: $(Build.BuildNumber)"
+      }
+      Invoke-RestMethod -Uri $webhook -Method Post -Body ($body | ConvertTo-Json)
+```
+
+**Monitoring & Alerting:**
+- Application Insights for script telemetry
+- Azure Monitor for pipeline health
+- Custom dashboards in Azure DevOps
+- Email notifications on failures
+
+**Documentation Generation:**
+- platyPS for external help files
+- PSDoc for markdown documentation
+- ReadTheDocs for hosting docs
+
+**Speaker Notes:**
+- Your workflow doesn't exist in isolation
+- Integration with other tools enhances productivity
+- VS Code is the best PowerShell editor
+- Built-in terminal, debugging, Git integration
+- Tasks.json lets you run commands from UI
+- Keyboard shortcuts for common operations
+- Pester Test Adapter shows tests in sidebar
+- Run individual tests with one click
+- Git hooks enforce quality locally
+- Pre-commit hook runs lint
+- Prevents committing bad code
+- Pre-push hook runs tests
+- Catches issues before pipeline
+- Notifications keep team informed
+- Slack or Teams messages on failure
+- @mention responsible person
+- Include build link for quick access
+- Monitoring tracks health over time
+- How often do builds fail?
+- Which tests fail most?
+- How long do builds take?
+- Application Insights for production scripts
+- Track execution, errors, performance
+- Debug issues in production
+- Documentation generation
+- platyPS creates XML help from comments
+- PSDoc generates markdown docs
+- ReadTheDocs hosts beautiful documentation
+- Integration requires initial setup
+- But saves time long-term
+- Choose integrations that solve real problems
+- Don't integrate for integration's sake
+
+---
+
+## Final Summary Slide
+### Your Action Plan
+
+**Today You Learned:**
+✅ How to structure PowerShell projects  
+✅ How to write testable functions  
+✅ How to use PSScriptAnalyzer and Pester  
+✅ How to create Azure DevOps pipelines  
+✅ How to track quality over time  
+
+**This Week:**
+1. Install the tools
+2. Clone the demo repository
+3. Run tests locally
+4. Modify a function and see tests fail/pass
+
+**This Month:**
+1. Apply this to one of your scripts
+2. Set up an Azure DevOps pipeline
+3. Share with your team
+4. Start building the habit
+
+**Remember:**
+- Progress over perfection
+- Start small, iterate
+- Automation saves time
+- Quality is a journey, not a destination
+
+**Thank you and happy scripting!** 🚀
+
+**Speaker Notes:**
+- We've covered a lot today
+- Don't feel overwhelmed
+- You don't need to implement everything at once
+- Key takeaway: Testing makes code better
+- Automation makes testing sustainable
+- Start with one small script
+- Add one test
+- See it pass
+- Feel the confidence boost
+- Then add another test
+- Build the habit gradually
+- Share your success with the team
+- Teaching others reinforces your learning
+- The PowerShell community is supportive
+- Don't hesitate to ask for help
+- Remember: Every expert was once a beginner
+- Every large project started small
+- Your journey to better PowerShell starts now
+- Thank you for your time and attention
+- Feel free to reach out with questions
+- Let's build better PowerShell together!
