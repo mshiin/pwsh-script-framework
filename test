@@ -1,0 +1,453 @@
+# Azure DevOps Pipeline for PowerShell Scripts
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    include:
+    - src/**
+    - tests/**
+    - .azure-pipelines/**
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+- stage: Build
+  displayName: 'Build and Validate'
+  jobs:
+  - job: Lint
+    displayName: 'PowerShell Linting'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Install PSScriptAnalyzer'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Installing PSScriptAnalyzer..." -ForegroundColor Cyan
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -Repository PSGallery
+          Write-Host "✓ PSScriptAnalyzer installed" -ForegroundColor Green
+    
+    - task: PowerShell@2
+      displayName: 'Run Script Analyzer'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Running PSScriptAnalyzer ===" -ForegroundColor Cyan
+          
+          $scripts = Get-ChildItem -Path "$(Build.SourcesDirectory)\src" -Filter *.ps1 -Recurse
+          $totalIssues = 0
+          $results = @()
+          
+          foreach ($script in $scripts) {
+              Write-Host "`nAnalyzing: $($script.Name)" -ForegroundColor White
+              $analysis = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Warning,Error
+              
+              if ($analysis) {
+                  $totalIssues += $analysis.Count
+                  $results += $analysis
+                  $analysis | Format-Table -AutoSize
+              } else {
+                  Write-Host "  ✓ No issues found" -ForegroundColor Green
+              }
+          }
+          
+          if ($totalIssues -gt 0) {
+              Write-Host "`n✗ Found $totalIssues issue(s)" -ForegroundColor Red
+              exit 1
+          } else {
+              Write-Host "`n✓ All scripts passed linting!" -ForegroundColor Green
+          }
+        errorActionPreference: 'stop'
+        failOnStderr: false
+        pwsh: false
+
+- stage: Test
+  displayName: 'Run Tests'
+  dependsOn: Build
+  jobs:
+  - job: PesterTests
+    displayName: 'Pester Unit Tests'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Install Pester'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Installing Pester..." -ForegroundColor Cyan
+          Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck -MinimumVersion 5.0.0
+          Write-Host "✓ Pester installed" -ForegroundColor Green
+    
+    - task: PowerShell@2
+      displayName: 'Run Pester Tests'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Running Pester Tests ===" -ForegroundColor Cyan
+          
+          $config = New-PesterConfiguration
+          $config.Run.Path = "$(Build.SourcesDirectory)\tests"
+          $config.Run.Exit = $true
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputPath = "$(Build.SourcesDirectory)\TestResults\test-results.xml"
+          $config.TestResult.OutputFormat = "NUnitXml"
+          $config.CodeCoverage.Enabled = $false
+          $config.Output.Verbosity = "Detailed"
+          
+          # Create TestResults directory if it doesn't exist
+          $testResultsPath = "$(Build.SourcesDirectory)\TestResults"
+          if (-not (Test-Path $testResultsPath)) {
+              New-Item -ItemType Directory -Path $testResultsPath | Out-Null
+          }
+          
+          Invoke-Pester -Configuration $config
+        errorActionPreference: 'stop'
+        failOnStderr: false
+        pwsh: false
+    
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+      inputs:
+        testResultsFormat: 'NUnit'
+        testResultsFiles: '**/test-results.xml'
+        searchFolder: '$(Build.SourcesDirectory)\TestResults'
+        mergeTestResults: true
+        failTaskOnFailedTests: true
+        testRunTitle: 'PowerShell Unit Tests'
+
+- stage: Package
+  displayName: 'Package Scripts'
+  dependsOn: Test
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - job: PublishArtifacts
+    displayName: 'Publish Build Artifacts'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Prepare Artifacts'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Preparing artifacts..." -ForegroundColor Cyan
+          
+          $artifactPath = "$(Build.ArtifactStagingDirectory)\scripts"
+          New-Item -ItemType Directory -Path $artifactPath -Force | Out-Null
+          
+          # Copy scripts
+          Copy-Item -Path "$(Build.SourcesDirectory)\src\*" -Destination $artifactPath -Recurse -Force
+          
+          Write-Host "✓ Artifacts prepared" -ForegroundColor Green
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifacts'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'powershell-scripts'
+        publishLocation: 'Container'
+
+
+# SomeFunction.Tests.ps1
+BeforeAll {
+    # Import the module/script to test
+    $scriptPath = Join-Path $PSScriptRoot "..\src\scripts\SomeFunction.ps1"
+    . $scriptPath
+}
+
+Describe "Get-ProcessInfo" {
+    Context "When retrieving processes" {
+        It "Should return process information" {
+            $result = Get-ProcessInfo -Top 5
+            $result | Should -Not -BeNullOrEmpty
+            $result.Count | Should -BeGreaterThan 0
+        }
+        
+        It "Should return exactly the requested number of processes" {
+            $topCount = 3
+            $result = Get-ProcessInfo -Top $topCount
+            $result.Count | Should -BeLessOrEqual $topCount
+        }
+        
+        It "Should have required properties" {
+            $result = Get-ProcessInfo -Top 1
+            $result[0].PSObject.Properties.Name | Should -Contain 'ProcessName'
+            $result[0].PSObject.Properties.Name | Should -Contain 'CPU(s)'
+            $result[0].PSObject.Properties.Name | Should -Contain 'Memory(MB)'
+            $result[0].PSObject.Properties.Name | Should -Contain 'Id'
+        }
+        
+        It "Should throw error for non-existent process" {
+            { Get-ProcessInfo -ProcessName "NonExistentProcess123456" -ErrorAction Stop } | 
+                Should -Throw
+        }
+    }
+}
+
+Describe "Test-FileExists" {
+    Context "When testing file existence" {
+        BeforeAll {
+            # Create a temporary test file
+            $testFile = Join-Path $TestDrive "test.txt"
+            "Test content" | Out-File -FilePath $testFile
+        }
+        
+        It "Should return true for existing file" {
+            $result = Test-FileExists -Path $testFile
+            $result | Should -Be $true
+        }
+        
+        It "Should return false for non-existent file" {
+            $nonExistentPath = Join-Path $TestDrive "nonexistent.txt"
+            $result = Test-FileExists -Path $nonExistentPath
+            $result | Should -Be $false
+        }
+        
+        It "Should accept pipeline input" {
+            $result = $testFile | Test-FileExists
+            $result | Should -Be $true
+        }
+    }
+}
+
+
+
+# controller.ps1 - Local development controller script
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)]
+    [ValidateSet('lint', 'test', 'all', 'clean')]
+    [string]$Action
+)
+
+$ErrorActionPreference = 'Stop'
+$ScriptRoot = $PSScriptRoot
+
+# Configuration
+$Config = @{
+    ScriptsPath = Join-Path $ScriptRoot "src\scripts"
+    TestsPath = Join-Path $ScriptRoot "tests"
+    ResultsPath = Join-Path $ScriptRoot "TestResults"
+}
+
+function Write-ColorOutput {
+    param(
+        [string]$Message,
+        [string]$Color = 'White'
+    )
+    Write-Host $Message -ForegroundColor $Color
+}
+
+function Invoke-Lint {
+    Write-ColorOutput "`n=== Running PSScriptAnalyzer Lint ===" "Cyan"
+    
+    # Check if PSScriptAnalyzer is installed
+    if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+        Write-ColorOutput "PSScriptAnalyzer not found. Installing..." "Yellow"
+        Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+    }
+    
+    Import-Module PSScriptAnalyzer
+    
+    # Lint all PowerShell files
+    $files = Get-ChildItem -Path $Config.ScriptsPath -Filter "*.ps1" -Recurse
+    $totalIssues = 0
+    
+    foreach ($file in $files) {
+        Write-ColorOutput "`nAnalyzing: $($file.Name)" "White"
+        $results = Invoke-ScriptAnalyzer -Path $file.FullName -Severity Warning,Error
+        
+        if ($results) {
+            $totalIssues += $results.Count
+            $results | Format-Table -AutoSize
+        }
+        else {
+            Write-ColorOutput "  ✓ No issues found" "Green"
+        }
+    }
+    
+    if ($totalIssues -eq 0) {
+        Write-ColorOutput "`n✓ Lint passed with no issues!" "Green"
+        return $true
+    }
+    else {
+        Write-ColorOutput "`n✗ Lint found $totalIssues issue(s)" "Red"
+        return $false
+    }
+}
+
+function Invoke-Tests {
+    Write-ColorOutput "`n=== Running Pester Tests ===" "Cyan"
+    
+    # Check if Pester is installed
+    if (-not (Get-Module -ListAvailable -Name Pester)) {
+        Write-ColorOutput "Pester not found. Installing..." "Yellow"
+        Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+    }
+    
+    Import-Module Pester
+    
+    # Create results directory
+    if (-not (Test-Path $Config.ResultsPath)) {
+        New-Item -ItemType Directory -Path $Config.ResultsPath | Out-Null
+    }
+    
+    # Run tests
+    $testResults = Invoke-Pester -Path $Config.TestsPath -OutputFile (Join-Path $Config.ResultsPath "test-results.xml") -OutputFormat NUnitXml -PassThru
+    
+    Write-ColorOutput "`n=== Test Summary ===" "Cyan"
+    Write-ColorOutput "Total Tests: $($testResults.TotalCount)" "White"
+    Write-ColorOutput "Passed: $($testResults.PassedCount)" "Green"
+    Write-ColorOutput "Failed: $($testResults.FailedCount)" "Red"
+    Write-ColorOutput "Skipped: $($testResults.SkippedCount)" "Yellow"
+    
+    if ($testResults.FailedCount -eq 0) {
+        Write-ColorOutput "`n✓ All tests passed!" "Green"
+        return $true
+    }
+    else {
+        Write-ColorOutput "`n✗ Some tests failed!" "Red"
+        return $false
+    }
+}
+
+function Invoke-Clean {
+    Write-ColorOutput "`n=== Cleaning Test Results ===" "Cyan"
+    
+    if (Test-Path $Config.ResultsPath) {
+        Remove-Item -Path $Config.ResultsPath -Recurse -Force
+        Write-ColorOutput "✓ Test results cleaned" "Green"
+    }
+    else {
+        Write-ColorOutput "Nothing to clean" "Yellow"
+    }
+}
+
+# Main execution
+try {
+    Write-ColorOutput "`n╔════════════════════════════════════╗" "Cyan"
+    Write-ColorOutput "║  PowerShell Development Controller ║" "Cyan"
+    Write-ColorOutput "╚════════════════════════════════════╝`n" "Cyan"
+    
+    $success = $true
+    
+    switch ($Action) {
+        'lint' {
+            $success = Invoke-Lint
+        }
+        'test' {
+            $success = Invoke-Tests
+        }
+        'all' {
+            $lintSuccess = Invoke-Lint
+            $testSuccess = Invoke-Tests
+            $success = $lintSuccess -and $testSuccess
+        }
+        'clean' {
+            Invoke-Clean
+        }
+    }
+    
+    if ($success) {
+        Write-ColorOutput "`n✓ Operation completed successfully!" "Green"
+        exit 0
+    }
+    else {
+        Write-ColorOutput "`n✗ Operation completed with errors!" "Red"
+        exit 1
+    }
+}
+catch {
+    Write-ColorOutput "`n✗ Error: $_" "Red"
+    exit 1
+}
+
+
+function Get-ProcessInfo {
+    <#
+    .SYNOPSIS
+    Retrieves information about running processes.
+    
+    .DESCRIPTION
+    Gets detailed information about processes including CPU usage and memory.
+    
+    .PARAMETER ProcessName
+    Name of the process to retrieve information for.
+    
+    .PARAMETER Top
+    Number of top processes to return by CPU usage.
+    
+    .EXAMPLE
+    Get-ProcessInfo -ProcessName "chrome"
+    
+    .EXAMPLE
+    Get-ProcessInfo -Top 5
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$ProcessName,
+        
+        [Parameter(Mandatory=$false)]
+        [int]$Top = 10
+    )
+    
+    try {
+        if ($ProcessName) {
+            $processes = Get-Process -Name $ProcessName -ErrorAction Stop
+            Write-Host "Found $($processes.Count) process(es) named '$ProcessName'" -ForegroundColor Green
+        }
+        else {
+            $processes = Get-Process | Sort-Object CPU -Descending | Select-Object -First $Top
+            Write-Host "Retrieved top $Top processes by CPU usage" -ForegroundColor Green
+        }
+        
+        $result = $processes | Select-Object @{
+            Name='ProcessName'; Expression={$_.ProcessName}
+        }, @{
+            Name='CPU(s)'; Expression={[math]::Round($_.CPU, 2)}
+        }, @{
+            Name='Memory(MB)'; Expression={[math]::Round($_.WorkingSet64 / 1MB, 2)}
+        }, @{
+            Name='Id'; Expression={$_.Id}
+        }
+        
+        return $result
+    }
+    catch {
+        Write-Error "Error retrieving process information: $_"
+        throw
+    }
+}
+
+function Test-FileExists {
+    <#
+    .SYNOPSIS
+    Tests if a file or directory exists.
+    
+    .PARAMETER Path
+    Path to test.
+    
+    .EXAMPLE
+    Test-FileExists -Path "C:\temp\file.txt"
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path
+    )
+    
+    if (Test-Path -Path $Path) {
+        Write-Host "Path exists: $Path" -ForegroundColor Green
+        return $true
+    }
+    else {
+        Write-Host "Path does not exist: $Path" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+Export-ModuleMember -Function Get-ProcessInfo, Test-FileExists
