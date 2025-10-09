@@ -1,0 +1,140 @@
+
+# Test File: Get-QMStatus.Tests.ps1
+BeforeAll {
+    # Import the script to test
+    . $PSScriptRoot/../scripts/Get-QMStatus.ps1
+}
+
+Describe "Get-QMStatus" {
+    
+    Context "When IBM MQ is installed and running" {
+        BeforeAll {
+            # Mock Get-Command to simulate dspmq exists
+            Mock Get-Command {
+                return [PSCustomObject]@{
+                    Name = 'dspmq'
+                    CommandType = 'Application'
+                }
+            } -ParameterFilter { $Name -eq 'dspmq' }
+            
+            # Mock dspmq output with sample queue managers
+            Mock dspmq {
+                return @(
+                    "QMNAME(QM1)                                               STATUS(Running)",
+                    "QMNAME(QM2)                                               STATUS(Running as standby)",
+                    "QMNAME(QM3)                                               STATUS(Ended immediately)"
+                )
+            }
+        }
+        
+        It "Should return queue manager objects" {
+            $result = Get-QMStatus
+            
+            $result.Count | Should -Be 3
+            $result[0] | Should -BeOfType [PSObject]
+        }
+        
+        It "Should parse queue manager names correctly" {
+            $result = Get-QMStatus
+            
+            $result[0].Name | Should -Be "QM1"
+            $result[1].Name | Should -Be "QM2"
+            $result[2].Name | Should -Be "QM3"
+        }
+        
+        It "Should parse queue manager statuses correctly" {
+            $result = Get-QMStatus
+            
+            $result[0].Status | Should -Be "Running"
+            $result[1].Status | Should -Be "Running as standby"
+            $result[2].Status | Should -Be "Ended immediately"
+        }
+        
+        It "Should call dspmq command" {
+            Get-QMStatus
+            
+            Should -Invoke dspmq -Times 1
+        }
+        
+        It "Should have Name and Status properties" {
+            $result = Get-QMStatus
+            
+            $result[0].PSObject.Properties.Name | Should -Contain "Name"
+            $result[0].PSObject.Properties.Name | Should -Contain "Status"
+        }
+    }
+    
+    Context "When IBM MQ is not installed" {
+        BeforeAll {
+            # Mock Get-Command to simulate dspmq doesn't exist
+            Mock Get-Command {
+                return $null
+            } -ParameterFilter { $Name -eq 'dspmq' }
+        }
+        
+        It "Should throw error when dspmq is not found" {
+            { Get-QMStatus } | Should -Throw "*IBM MQ*not installed*"
+        }
+        
+        It "Should not call dspmq when command doesn't exist" {
+            try { Get-QMStatus } catch {}
+            
+            Should -Invoke dspmq -Times 0
+        }
+    }
+    
+    Context "When no queue managers exist" {
+        BeforeAll {
+            Mock Get-Command {
+                return [PSCustomObject]@{ Name = 'dspmq' }
+            } -ParameterFilter { $Name -eq 'dspmq' }
+            
+            # Mock dspmq returning empty
+            Mock dspmq {
+                return @()
+            }
+        }
+        
+        It "Should return empty array" {
+            $result = Get-QMStatus
+            
+            $result.Count | Should -Be 0
+        }
+    }
+    
+    Context "When queue managers have different statuses" {
+        BeforeAll {
+            Mock Get-Command {
+                return [PSCustomObject]@{ Name = 'dspmq' }
+            }
+            
+            Mock dspmq {
+                return @(
+                    "QMNAME(PROD_QM)                                           STATUS(Running)",
+                    "QMNAME(TEST_QM)                                           STATUS(Ended normally)",
+                    "QMNAME(DEV_QM)                                            STATUS(Starting)"
+                )
+            }
+        }
+        
+        It "Should handle multiple status types" {
+            $result = Get-QMStatus
+            
+            $result[0].Status | Should -Be "Running"
+            $result[1].Status | Should -Be "Ended normally"
+            $result[2].Status | Should -Be "Starting"
+        }
+        
+        It "Should filter running queue managers" {
+            $result = Get-QMStatus
+            $running = $result | Where-Object { $_.Status -eq "Running" }
+            
+            $running.Count | Should -Be 1
+            $running.Name | Should -Be "PROD_QM"
+        }
+    }
+}
+
+# Example: Run the tests
+# Save both files, then run:
+# Invoke-Pester -Path ./tests/Get-QMStatus.Tests.ps1 -Output Detailed
